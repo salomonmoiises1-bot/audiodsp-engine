@@ -1,9 +1,2 @@
-plugins {
-    alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
-}
-android {
-    namespace = "com.audiodsp.engine"
-    compileSdk = 34
-    ...
-}
+# audiodsp-engine
+Audio DSP Engine 32 bandas - Android 14 API 34+
