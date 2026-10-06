@@ -1,6 +1,5 @@
 package com.eqsb.jni
 
-import android.util.Log
 import com.eqsb.core.DspConfig
 import java.nio.ByteBuffer
 
@@ -9,16 +8,13 @@ class EQsbNativeDsp private constructor() {
     private var nativeHandle: Long = 0L
 
     companion object {
-        private const val TAG = "EQsbNativeDsp"
         private var isLibraryLoaded = false
 
         init {
             try {
                 System.loadLibrary("eqsb_dsp")
                 isLibraryLoaded = true
-                Log.i(TAG, "Native library libeqsb_dsp.so successfully loaded.")
             } catch (e: UnsatisfiedLinkError) {
-                Log.w(TAG, "Native library libeqsb_dsp.so not yet loaded into VM: ${e.message}")
             }
         }
 
