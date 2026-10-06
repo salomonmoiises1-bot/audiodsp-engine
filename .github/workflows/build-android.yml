@@ -24,12 +24,15 @@ jobs:
           cache: 'gradle'
 
       - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
         with:
           cmdline-tools-version: 11076708
 
-      - name: Install Android SDK, NDK & CMake
+      - name: Install Required Android SDK, NDK & CMake
+        shell: bash
         run: |
+          set -e
+
           sdkmanager --install \
             "platform-tools" \
             "platforms;android-34" \
@@ -37,20 +40,45 @@ jobs:
             "ndk;26.1.10909125" \
             "cmake;3.22.1"
 
-      - name: Accept Required Android SDK Licenses
+      - name: Verify Android Toolchain
+        shell: bash
         run: |
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
+          set -e
+
+          echo "=== Java ==="
+          java -version
+
+          echo "=== Android SDK ==="
+          sdkmanager --version
+
+          echo "=== Installed Required Packages ==="
+          sdkmanager --list_installed
+
+          echo "=== Verify Required Packages ==="
+
+          test -d "$ANDROID_SDK_ROOT/platform-tools"
+          test -d "$ANDROID_SDK_ROOT/platforms/android-34"
+          test -d "$ANDROID_SDK_ROOT/build-tools/34.0.0"
+          test -d "$ANDROID_SDK_ROOT/ndk/26.1.10909125"
+          test -d "$ANDROID_SDK_ROOT/cmake/3.22.1"
+
+          echo "All required Android packages are installed."
 
       - name: Grant Execute Permission to Gradle Wrapper
         run: chmod +x ./gradlew
         working-directory: EQsb
 
       - name: Run Standalone Native C++ DSP Test Suite & Benchmark
+        shell: bash
         run: |
+          set -e
+
           mkdir -p app/src/test/cpp/build
           cd app/src/test/cpp/build
+
           cmake ..
           make -j$(nproc)
+
           ./eqsb_native_tests
         working-directory: EQsb
 
