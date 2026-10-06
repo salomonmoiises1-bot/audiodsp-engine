@@ -1,65 +1,48 @@
 cmake_minimum_required(VERSION 3.22.1)
 
-project(eqsb_native_dsp VERSION 1.0.0 LANGUAGES C CXX)
+project(eqsb_native_tests VERSION 1.0.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
-# Optimization flags for real-time audio DSP
 if(MSVC)
     add_compile_options(/O2 /fp:fast)
 else()
     add_compile_options(-O3 -ffast-math -Wall -Wextra -Wno-unused-parameter)
 endif()
 
-# Core DSP and Engine Source Files
-set(EQSB_CORE_SOURCES
-    EQsbDspEngine.cpp
-    dsp/BiquadFilter.cpp
-    eq/EQ32.cpp
-    dynamics/MDRC.cpp
-    dynamics/AutoGain.cpp
-    dynamics/Limiter.cpp
-    effects/BassBoost.cpp
-    effects/ToneControl.cpp
-    effects/SpatialVirtualizer.cpp
-    backends/OboeBackend.cpp
-    backends/AudioEffectBackend.cpp
-)
+set(EQSB_CPP_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../../main/cpp")
 
-# 1. Static DSP Library (for unit tests, benchmarks, and embedding)
-add_library(eqsb_dsp_static STATIC
-    ${EQSB_CORE_SOURCES}
-)
-
-target_include_directories(eqsb_dsp_static PUBLIC
+include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/dsp
-    ${CMAKE_CURRENT_SOURCE_DIR}/eq
-    ${CMAKE_CURRENT_SOURCE_DIR}/dynamics
-    ${CMAKE_CURRENT_SOURCE_DIR}/effects
-    ${CMAKE_CURRENT_SOURCE_DIR}/backends
+    ${EQSB_CPP_DIR}
+    ${EQSB_CPP_DIR}/dsp
+    ${EQSB_CPP_DIR}/eq
+    ${EQSB_CPP_DIR}/dynamics
+    ${EQSB_CPP_DIR}/effects
+    ${EQSB_CPP_DIR}/backends
+    ${EQSB_CPP_DIR}/jni
 )
 
-# 2. Shared JNI Library for Android: libeqsb_dsp.so
-add_library(eqsb_dsp SHARED
-    ${EQSB_CORE_SOURCES}
-    jni/EQsbNativeDspJni.cpp
+set(TEST_SOURCES
+    test_main.cpp
+    test_eq32.cpp
+    test_dynamics.cpp
+    test_tone_effects.cpp
+    test_gain_balance.cpp
+    test_integration.cpp
+    test_benchmark.cpp
+    ${EQSB_CPP_DIR}/EQsbDspEngine.cpp
+    ${EQSB_CPP_DIR}/dsp/BiquadFilter.cpp
+    ${EQSB_CPP_DIR}/eq/EQ32.cpp
+    ${EQSB_CPP_DIR}/dynamics/MDRC.cpp
+    ${EQSB_CPP_DIR}/dynamics/AutoGain.cpp
+    ${EQSB_CPP_DIR}/dynamics/Limiter.cpp
+    ${EQSB_CPP_DIR}/effects/BassBoost.cpp
+    ${EQSB_CPP_DIR}/effects/ToneControl.cpp
+    ${EQSB_CPP_DIR}/effects/SpatialVirtualizer.cpp
+    ${EQSB_CPP_DIR}/backends/OboeBackend.cpp
+    ${EQSB_CPP_DIR}/backends/AudioEffectBackend.cpp
 )
 
-target_include_directories(eqsb_dsp PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/dsp
-    ${CMAKE_CURRENT_SOURCE_DIR}/eq
-    ${CMAKE_CURRENT_SOURCE_DIR}/dynamics
-    ${CMAKE_CURRENT_SOURCE_DIR}/effects
-    ${CMAKE_CURRENT_SOURCE_DIR}/backends
-    ${CMAKE_CURRENT_SOURCE_DIR}/jni
-)
-
-# Link Android system libraries when targeting Android
-if(ANDROID)
-    find_library(log-lib log)
-    target_link_libraries(eqsb_dsp PRIVATE ${log-lib})
-endif()
+add_executable(eqsb_native_tests ${TEST_SOURCES})
