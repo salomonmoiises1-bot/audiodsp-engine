@@ -59,6 +59,41 @@ EQSB_TEST(ToneControl_BassMidTrebleBoost) {
     return assertTrue(outBassRms / inBassRms > 1.4f, "Tone bass boost must amplify low frequencies");
 }
 
+
+EQSB_TEST(BassBoost_EnableAfterConfiguration) {
+    BassBoost bb;
+    bb.initialize(48000.0f, 2);
+    bb.setEnabled(false);
+    bb.setStrength(1.0f);
+    bb.setEnabled(true);
+
+    constexpr int frames = 4096;
+    std::vector<float> buf(frames * 2);
+    generateSine(buf.data(), frames, 2, 60.0f, 48000.0f, 0.2f);
+    float inRms = calculateRms(buf.data(), frames, 2, 0);
+    bb.process(buf.data(), frames, 2);
+    float outRms = calculateRms(buf.data() + 1024 * 2, frames - 1024, 2, 0);
+    return assertTrue(outRms / inRms > 2.0f,
+                      "BassBoost must rebuild its filter when enabled after strength configuration");
+}
+
+EQSB_TEST(ToneControl_EnableAfterConfiguration) {
+    ToneControl tc;
+    tc.initialize(48000.0f, 2);
+    tc.setEnabled(false);
+    tc.setBassDb(6.0f);
+    tc.setEnabled(true);
+
+    constexpr int frames = 4096;
+    std::vector<float> buf(frames * 2);
+    generateSine(buf.data(), frames, 2, 150.0f, 48000.0f, 0.2f);
+    float inRms = calculateRms(buf.data(), frames, 2, 0);
+    tc.process(buf.data(), frames, 2);
+    float outRms = calculateRms(buf.data() + 1024 * 2, frames - 1024, 2, 0);
+    return assertTrue(outRms / inRms > 1.4f,
+                      "ToneControl must rebuild its filters when enabled after gain configuration");
+}
+
 // Spatial Virtualizer: widens stereo soundstage
 EQSB_TEST(SpatialVirtualizer_StereoWidening) {
     SpatialVirtualizer sv;

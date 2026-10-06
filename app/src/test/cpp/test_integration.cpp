@@ -46,6 +46,22 @@ EQSB_TEST(Integration_CompleteDspChainFlow) {
     return assertTrue(peak <= ceilingLin + 0.001f, "Full chain must respect limiter ceiling");
 }
 
+EQSB_TEST(Integration_FinalLimiterAfterMasterGain) {
+    EQsbDspEngine engine;
+    engine.initialize(48000, 2, 256);
+    engine.getLimiter().setEnabled(true);
+    engine.getLimiter().setCeilingDb(-1.0f);
+    engine.getMasterGain().setGainDb(12.0f);
+
+    constexpr int frames = 1024;
+    std::vector<float> pcm(frames * 2, 0.5f);
+    engine.process(pcm.data(), frames);
+
+    const float ceiling = engine.getLimiter().getCeilingLinear();
+    return assertTrue(calculatePeak(pcm.data(), frames, 2) <= ceiling + 0.001f,
+                      "Final limiter must protect against downstream master gain");
+}
+
 EQSB_TEST(Integration_EngineReset) {
     EQsbDspEngine engine;
     engine.initialize(48000, 2, 256);
