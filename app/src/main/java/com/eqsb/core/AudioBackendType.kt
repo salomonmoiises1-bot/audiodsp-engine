@@ -7,6 +7,6 @@ enum class AudioBackendType(val displayName: String, val description: String) {
     ),
     AUDIO_EFFECT(
         displayName = "Android AudioEffect Bridge",
-        description = "AudioEffect session bridge for media players broadcasting open session IDs."
+        description = "Requires a registered EQsb system/vendor Effects HAL; unavailable in a normal APK."
     )
 }
