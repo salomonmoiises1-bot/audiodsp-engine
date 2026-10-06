@@ -1,6 +1,5 @@
 package com.eqsb.backend
 
-import android.media.audiofx.AudioEffect
 import android.util.Log
 import com.eqsb.core.AudioBackendType
 import com.eqsb.core.DspConfig
@@ -26,9 +25,11 @@ class AudioEffectAudioBackend : IAudioBackend {
 
     override fun start(dsp: EQsbNativeDsp): Boolean {
         nativeDsp = dsp
-        running = true
-        Log.i(TAG, "AudioEffect session bridge initialized. Listening for audio sessions.")
-        return true
+        // A normal APK cannot register a custom native effect UUID with AudioFlinger.
+        // Do not report this backend as active without the system/vendor effect.
+        running = false
+        Log.e(TAG, "AudioEffect backend unavailable in a normal APK: install/register the EQsb Effects HAL to use this route.")
+        return false
     }
 
     override fun stop() {
