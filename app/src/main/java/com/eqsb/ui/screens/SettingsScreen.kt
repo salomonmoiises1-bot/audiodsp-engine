@@ -31,7 +31,7 @@ fun SettingsScreen(viewModel: EQsbViewModel) {
                 color = AccentCyan
             )
             Text(
-                text = "Both backends use the identical native C++ EQsbDspEngine.",
+                text = "Oboe is the functional APK backend. AudioEffect requires a system/vendor Effects HAL registration.",
                 style = MaterialTheme.typography.labelSmall,
                 color = TextSecondary
             )
@@ -60,7 +60,8 @@ fun SettingsScreen(viewModel: EQsbViewModel) {
                         ) {
                             RadioButton(
                                 selected = config.backendType == backend,
-                                onClick = { viewModel.setBackendType(backend) },
+                                onClick = { if (backend == AudioBackendType.OBOE) viewModel.setBackendType(backend) },
+                                enabled = backend == AudioBackendType.OBOE,
                                 colors = RadioButtonDefaults.colors(selectedColor = AccentCyan)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -88,7 +89,7 @@ fun SettingsScreen(viewModel: EQsbViewModel) {
                     InfoRow("Equalizer Topology", "32 RBJ Biquads (Direct Form II Transposed)")
                     InfoRow("Processing Format", "32-Bit IEEE Floating Point PCM")
                     InfoRow("Sampling Rates", "44.1 kHz, 48.0 kHz, 96.0 kHz")
-                    InfoRow("Buffer Performance", "Zero heap allocations in audio loop")
+                    InfoRow("Buffer Performance", "No heap allocation in DSP processing path")
                     InfoRow("Target Platform", "Android API 24+ (minSdk 24, targetSdk 34)")
                 }
             }

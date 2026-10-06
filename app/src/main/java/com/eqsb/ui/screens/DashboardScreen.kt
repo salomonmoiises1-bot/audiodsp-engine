@@ -101,7 +101,7 @@ fun DashboardScreen(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onNavigateToTab(4) }, // Presets tab
+                    .clickable { onNavigateToTab(5) }, // Presets tab
                 colors = CardDefaults.cardColors(containerColor = CardDark),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -146,20 +146,20 @@ fun DashboardScreen(
 
         item {
             val chainNodes = listOf(
-                DspNodeItem("1. Pre-Gain", "${String.format("%+.1f", config.preGainDb)} dB", config.preGainDb != 0f, 3),
-                DspNodeItem("2. Bass Boost", "${(config.bassBoostStrength * 100).toInt()}% (+${String.format("%.1f", config.bassBoostStrength * 12f)} dB)", config.bassBoostEnabled, 2),
-                DspNodeItem("3. Tone Control", "B:${String.format("%+.0f", config.toneBassDb)} M:${String.format("%+.0f", config.toneMidDb)} T:${String.format("%+.0f", config.toneTrebleDb)}", config.toneEnabled, 2),
+                DspNodeItem("1. Pre-Gain", "${String.format("%+.1f", config.preGainDb)} dB", config.preGainDb != 0f, 4),
+                DspNodeItem("2. Bass Boost", "${(config.bassBoostStrength * 100).toInt()}% (+${String.format("%.1f", config.bassBoostStrength * 12f)} dB)", config.bassBoostEnabled, 3),
+                DspNodeItem("3. Tone Control", "B:${String.format("%+.0f", config.toneBassDb)} M:${String.format("%+.0f", config.toneMidDb)} T:${String.format("%+.0f", config.toneTrebleDb)}", config.toneEnabled, 3),
                 DspNodeItem("4. EQ32 (32 Biquads)", "32 RBJ Filters Active", config.eq32Enabled, 1),
                 DspNodeItem("5. MDRC (3-Band)", "L/M/H Dynamics", config.mdrcEnabled, 2),
                 DspNodeItem("6. AutoGain (AGC)", "${config.autoGainTargetDb.toInt()} dBFS Target", config.autoGainEnabled, 2),
-                DspNodeItem("7. Peak Limiter", "${config.limiterCeilingDb} dBFS Ceiling", config.limiterEnabled, 2),
-                DspNodeItem("8. Spatial Virtualizer", "${(config.spatialWidth * 100).toInt()}% Width", config.spatialEnabled, 2),
-                DspNodeItem("9. Master Gain", "${String.format("%+.1f", config.masterGainDb)} dB", config.masterGainDb != 0f, 3),
-                DspNodeItem("10. Balance (L/R)", when {
+                DspNodeItem("7. Spatial Virtualizer", "${(config.spatialWidth * 100).toInt()}% Width", config.spatialEnabled, 3),
+                DspNodeItem("8. Master Gain", "${String.format("%+.1f", config.masterGainDb)} dB", config.masterGainDb != 0f, 4),
+                DspNodeItem("9. Balance (L/R)", when {
                     config.balance < 0 -> "L ${(config.balance * -100).toInt()}%"
                     config.balance > 0 -> "R ${(config.balance * 100).toInt()}%"
                     else -> "Center"
-                }, config.balance != 0f, 3)
+                }, config.balance != 0f, 4),
+                DspNodeItem("10. Peak Limiter (final)", "${config.limiterCeilingDb} dBFS Ceiling", config.limiterEnabled, 2)
             )
 
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
