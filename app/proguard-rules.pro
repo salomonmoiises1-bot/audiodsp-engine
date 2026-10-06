@@ -1,5 +1,7 @@
-# ProGuard rules for AudioDSP Engine Pro
--keepattributes *Annotation*
--keepclassmembers class * {
-    @android.webkit.JavascriptInterface <methods>;
+# Preserve JNI entry points for EQsb DSP Core
+-keepclasseswithmembernames class * {
+    native <methods>;
 }
+
+-keep class com.eqsb.jni.** { *; }
+-keep class com.eqsb.core.** { *; }
