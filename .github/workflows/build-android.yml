@@ -23,20 +23,23 @@ jobs:
           java-version: '17'
           cache: 'gradle'
 
-      - name: Set up Android SDK, NDK & CMake
+      - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
           cmdline-tools-version: 11076708
 
-      - name: Install Android Build Tools, NDK & CMake
+      - name: Install Android SDK, NDK & CMake
         run: |
-          yes | sdkmanager --licenses || true
           sdkmanager --install \
             "platform-tools" \
             "platforms;android-34" \
             "build-tools;34.0.0" \
             "ndk;26.1.10909125" \
             "cmake;3.22.1"
+
+      - name: Accept Required Android SDK Licenses
+        run: |
+          yes | sdkmanager --licenses > /dev/null 2>&1 || true
 
       - name: Grant Execute Permission to Gradle Wrapper
         run: chmod +x ./gradlew
