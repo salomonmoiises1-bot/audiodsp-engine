@@ -2,9 +2,9 @@ name: Build EQsb Android App & C++ DSP Engine
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
   pull_request:
-    branches: [ "main", "master" ]
+    branches: ["main", "master"]
   workflow_dispatch:
 
 jobs:
@@ -19,9 +19,9 @@ jobs:
       - name: Set up Java JDK 17
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: 'gradle'
+          distribution: "temurin"
+          java-version: "17"
+          cache: "gradle"
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v4
@@ -31,7 +31,7 @@ jobs:
       - name: Install Required Android SDK, NDK & CMake
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
           sdkmanager --install \
             "platform-tools" \
@@ -43,10 +43,13 @@ jobs:
       - name: Verify Android Toolchain
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
           echo "=== Java ==="
           java -version
+
+          echo "=== Gradle ==="
+          ./gradlew --version
 
           echo "=== Android SDK ==="
           sdkmanager --version
@@ -55,48 +58,60 @@ jobs:
           sdkmanager --list_installed
 
           echo "=== Verify Required Packages ==="
-
           test -d "$ANDROID_SDK_ROOT/platform-tools"
           test -d "$ANDROID_SDK_ROOT/platforms/android-34"
           test -d "$ANDROID_SDK_ROOT/build-tools/34.0.0"
           test -d "$ANDROID_SDK_ROOT/ndk/26.1.10909125"
           test -d "$ANDROID_SDK_ROOT/cmake/3.22.1"
 
-          echo "All required Android packages are installed."
+          echo "Android SDK, NDK 26.1.10909125 and CMake 3.22.1 are installed."
 
       - name: Grant Execute Permission to Gradle Wrapper
+        shell: bash
         run: chmod +x ./gradlew
-        working-directory: EQsb
 
       - name: Run Standalone Native C++ DSP Test Suite & Benchmark
         shell: bash
         run: |
-          set -e
+          set -euo pipefail
 
+          rm -rf app/src/test/cpp/build
           mkdir -p app/src/test/cpp/build
+
           cd app/src/test/cpp/build
 
           cmake ..
-          make -j$(nproc)
+          cmake --build . --parallel "$(nproc)"
 
           ./eqsb_native_tests
-        working-directory: EQsb
 
       - name: Clean Gradle Build
-        run: ./gradlew clean
-        working-directory: EQsb
+        shell: bash
+        run: ./gradlew clean --stacktrace
 
       - name: Run Android Unit & Integration Tests
+        shell: bash
         run: ./gradlew test --stacktrace
-        working-directory: EQsb
 
-      - name: Assemble Debug APK with Native C++ DSP (JNI / CMake)
+      - name: Assemble Debug APK with Native C++ DSP
+        shell: bash
         run: ./gradlew assembleDebug --stacktrace
-        working-directory: EQsb
+
+      - name: Verify Debug APK
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+
+          test -f "$APK_PATH"
+
+          echo "Debug APK generated successfully:"
+          ls -lh "$APK_PATH"
 
       - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: EQsb-debug-apk
-          path: EQsb/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: warn
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
