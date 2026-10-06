@@ -1,0 +1,71 @@
+name: Build EQsb Android App & C++ DSP Engine
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build Android APK & Native DSP
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'gradle'
+
+      - name: Set up Android SDK, NDK & CMake
+        uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: 11076708
+
+      - name: Install Android Build Tools, NDK & CMake
+        run: |
+          yes | sdkmanager --licenses || true
+          sdkmanager --install \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;26.1.10909125" \
+            "cmake;3.22.1"
+
+      - name: Grant Execute Permission to Gradle Wrapper
+        run: chmod +x ./gradlew
+        working-directory: EQsb
+
+      - name: Run Standalone Native C++ DSP Test Suite & Benchmark
+        run: |
+          mkdir -p app/src/test/cpp/build
+          cd app/src/test/cpp/build
+          cmake ..
+          make -j$(nproc)
+          ./eqsb_native_tests
+        working-directory: EQsb
+
+      - name: Clean Gradle Build
+        run: ./gradlew clean
+        working-directory: EQsb
+
+      - name: Run Android Unit & Integration Tests
+        run: ./gradlew test --stacktrace
+        working-directory: EQsb
+
+      - name: Assemble Debug APK with Native C++ DSP (JNI / CMake)
+        run: ./gradlew assembleDebug --stacktrace
+        working-directory: EQsb
+
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: EQsb-debug-apk
+          path: EQsb/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: warn
