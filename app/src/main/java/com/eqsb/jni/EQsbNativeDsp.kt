@@ -35,6 +35,8 @@ class EQsbNativeDsp private constructor() {
         @JvmStatic private external fun destroyEngine(handle: Long)
         @JvmStatic private external fun initialize(handle: Long, sampleRate: Int, channels: Int, framesPerBlock: Int)
         @JvmStatic private external fun reset(handle: Long)
+        @JvmStatic private external fun startOboe(handle: Long): Boolean
+        @JvmStatic private external fun stopOboe(handle: Long)
         @JvmStatic private external fun process(handle: Long, pcm: FloatArray, frames: Int)
         @JvmStatic private external fun processDirect(handle: Long, buffer: ByteBuffer, frames: Int)
         @JvmStatic private external fun setPreGain(handle: Long, gainDb: Float)
@@ -63,6 +65,12 @@ class EQsbNativeDsp private constructor() {
         if (nativeHandle != 0L) {
             initialize(nativeHandle, sampleRate, channels, framesPerBlock)
         }
+    }
+
+    fun startOboeStream(): Boolean = nativeHandle != 0L && startOboe(nativeHandle)
+
+    fun stopOboeStream() {
+        if (nativeHandle != 0L) stopOboe(nativeHandle)
     }
 
     fun resetEngine() {
