@@ -12,8 +12,10 @@
 #include "effects/BassBoost.h"
 #include "effects/ToneControl.h"
 #include "effects/SpatialVirtualizer.h"
+#include "backends/OboeBackend.h"
 #include <atomic>
 #include <memory>
+#include <mutex>
 
 namespace eqsb {
 
@@ -26,8 +28,8 @@ public:
     void initialize(int sampleRate, int channelCount, int framesPerBlock);
     void reset();
 
-    // In-place real PCM processing (Zero heap allocations, zero I/O, lock-free)
-    // Order: Pre-Gain -> Bass Boost -> Tone -> EQ32 -> MDRC -> AutoGain -> Limiter -> Master Gain -> Balance
+    // In-place real PCM processing. The realtime callback never waits for a configuration lock.
+    // Order: Pre-Gain -> Bass Boost -> Tone -> EQ32 -> MDRC -> AutoGain -> Spatial -> Master -> Balance -> final Limiter
     void process(float* interleavedPcm, int frames);
 
     // DSP Configuration Accessors
@@ -61,11 +63,18 @@ public:
     void setBypass(bool bypass) { bypass_.store(bypass, std::memory_order_relaxed); }
     bool isBypass() const { return bypass_.load(std::memory_order_relaxed); }
 
+    bool startOboe();
+    void stopOboe();
+
+    // Configuration lock used by control operations; realtime processing uses try_lock and never waits.
+    std::mutex& configMutex() { return configMutex_; }
+
 private:
     int sampleRate_{48000};
     int channelCount_{2};
     int framesPerBlock_{256};
     std::atomic<bool> bypass_{false};
+    mutable std::mutex configMutex_;
 
     // The 10 DSP Chain Nodes in fixed order
     dsp::PreGain preGain_;
@@ -78,6 +87,7 @@ private:
     effects::SpatialVirtualizer spatial_;
     dsp::MasterGain masterGain_;
     dsp::Balance balance_;
+    backends::OboeBackend oboeBackend_;
 };
 
 } // namespace eqsb

@@ -1,4 +1,5 @@
 #include "EQsbDspEngine.h"
+#include <algorithm>
 
 namespace eqsb {
 
@@ -8,11 +9,10 @@ EQsbDspEngine::EQsbDspEngine() {
 
 void EQsbDspEngine::initialize(int sampleRate, int channelCount, int framesPerBlock) {
     sampleRate_ = (sampleRate > 0) ? sampleRate : 48000;
-    channelCount_ = (channelCount > 0) ? channelCount : 2;
+    channelCount_ = (channelCount > 0) ? std::min(channelCount, 2) : 2;
     framesPerBlock_ = (framesPerBlock > 0) ? framesPerBlock : 256;
 
-    float fs = static_cast<float>(sampleRate_);
-
+    const float fs = static_cast<float>(sampleRate_);
     bassBoost_.initialize(fs, channelCount_);
     toneControl_.initialize(fs, channelCount_);
     eq32_.initialize(fs, channelCount_);
@@ -20,7 +20,6 @@ void EQsbDspEngine::initialize(int sampleRate, int channelCount, int framesPerBl
     autoGain_.initialize(fs, channelCount_);
     limiter_.initialize(fs, channelCount_);
     spatial_.initialize(fs, channelCount_);
-
     reset();
 }
 
@@ -41,36 +40,35 @@ void EQsbDspEngine::process(float* interleavedPcm, int frames) {
     if (!interleavedPcm || frames <= 0) return;
     if (bypass_.load(std::memory_order_relaxed)) return;
 
-    // Strict fixed DSP chain execution:
-    // 1. Pre-Gain
+    // Never block the realtime callback on a configuration update. A control-thread
+    // update may make this block pass through unchanged for one callback, which is
+    // preferable to priority inversion/jitter on the audio thread.
+    std::unique_lock<std::mutex> lock(configMutex_, std::try_to_lock);
+    if (!lock.owns_lock()) return;
+
     preGain_.process(interleavedPcm, frames, channelCount_);
-
-    // 2. Bass Boost
     bassBoost_.process(interleavedPcm, frames, channelCount_);
-
-    // 3. Tone (Bass, Mid, Treble)
     toneControl_.process(interleavedPcm, frames, channelCount_);
-
-    // 4. EQ32 (32 real biquad filters in sequence)
     eq32_.process(interleavedPcm, frames, channelCount_);
-
-    // 5. MDRC (Multiband Dynamic Range Compressor)
     mdrc_.process(interleavedPcm, frames, channelCount_);
-
-    // 6. AutoGain (RMS/Energy AGC)
     autoGain_.process(interleavedPcm, frames, channelCount_);
-
-    // 7. Limiter (Brickwall peak ceiling clamp)
-    limiter_.process(interleavedPcm, frames, channelCount_);
-
-    // 8. Spatial / Virtualizer
     spatial_.process(interleavedPcm, frames, channelCount_);
-
-    // 9. Master Gain
     masterGain_.process(interleavedPcm, frames, channelCount_);
-
-    // 10. Balance (L/R pan law)
     balance_.process(interleavedPcm, frames, channelCount_);
+    // Limiter is deliberately last so later gain/spatial stages cannot recreate peaks.
+    limiter_.process(interleavedPcm, frames, channelCount_);
+}
+
+bool EQsbDspEngine::startOboe() {
+    oboeBackend_.setDspEngine(this);
+    oboeBackend_.setSampleRate(sampleRate_);
+    oboeBackend_.setChannelCount(channelCount_);
+    oboeBackend_.setFramesPerCallback(framesPerBlock_);
+    return oboeBackend_.start();
+}
+
+void EQsbDspEngine::stopOboe() {
+    oboeBackend_.stop();
 }
 
 } // namespace eqsb

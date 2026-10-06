@@ -61,5 +61,6 @@ target_include_directories(eqsb_dsp PUBLIC
 # Link Android system libraries when targeting Android
 if(ANDROID)
     find_library(log-lib log)
-    target_link_libraries(eqsb_dsp PRIVATE ${log-lib})
+    find_package(oboe REQUIRED CONFIG)
+    target_link_libraries(eqsb_dsp PRIVATE ${log-lib} oboe::oboe)
 endif()
