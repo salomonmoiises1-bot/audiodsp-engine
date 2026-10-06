@@ -86,7 +86,7 @@ class EQsbAudioService : Service() {
             addAction(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION)
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(sessionReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            registerReceiver(sessionReceiver, filter, Context.RECEIVER_EXPORTED)
         } else {
             registerReceiver(sessionReceiver, filter)
         }
@@ -112,12 +112,24 @@ class EQsbAudioService : Service() {
     }
 
     private fun startEngine() {
+        if (!nativeDsp.isNativeReady()) {
+            _isServiceActive.value = false
+            Log.e(TAG, "Native DSP library is unavailable; refusing to start audio service")
+            stopSelf()
+            return
+        }
         startForeground(NOTIFICATION_ID, buildNotification())
         activeBackend = when (_configFlow.value.backendType) {
             AudioBackendType.OBOE -> oboeBackend
             AudioBackendType.AUDIO_EFFECT -> effectBackend
         }
-        activeBackend.start(nativeDsp)
+        val started = activeBackend.start(nativeDsp)
+        if (!started) {
+            _isServiceActive.value = false
+            Log.e(TAG, "Audio backend failed to start: ${activeBackend.name}")
+            stopSelf()
+            return
+        }
         activeBackend.applyConfig(_configFlow.value)
         _isServiceActive.value = true
         Log.i(TAG, "Audio Service started with backend: ${activeBackend.name}")
@@ -141,8 +153,13 @@ class EQsbAudioService : Service() {
                 AudioBackendType.AUDIO_EFFECT -> effectBackend
             }
             if (_isServiceActive.value) {
-                activeBackend.start(nativeDsp)
-                activeBackend.applyConfig(newConfig)
+                val started = activeBackend.start(nativeDsp)
+                if (started) {
+                    activeBackend.applyConfig(newConfig)
+                } else {
+                    _isServiceActive.value = false
+                    Log.e(TAG, "Audio backend switch failed: ${activeBackend.name}")
+                }
             }
         }
     }
