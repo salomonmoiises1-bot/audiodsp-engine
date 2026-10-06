@@ -64,10 +64,11 @@ android {
 
     buildFeatures {
         compose = true
+        prefab = true
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.8"
+        kotlinCompilerExtensionVersion = "1.5.15"
     }
 
     packaging {
