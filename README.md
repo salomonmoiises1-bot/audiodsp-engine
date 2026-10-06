@@ -104,10 +104,21 @@ Cada una de las 32 bandas cuenta con una instancia independiente de filtro biqua
 ## 4. Compilación y Ejecución de Tests Nativos
 
 ```bash
-# Compilar y ejecutar suite de 17 tests DSP automatizados y benchmarks
+# Compilar y ejecutar suite de 19 tests DSP automatizados y benchmarks
 cd app/src/test/cpp
 mkdir -p build && cd build
 cmake ..
 make -j$(nproc)
 ./eqsb_native_tests
 ```
+
+## Toolchain de construcción
+
+- Gradle 8.9
+- Android Gradle Plugin 8.7.3
+- Kotlin 1.9.25
+- JDK 17
+- NDK 26.1.10909125
+- CMake 3.22.1
+
+El wrapper incluido arranca Gradle 8.9 de forma autocontenida cuando la distribución todavía no está descargada.

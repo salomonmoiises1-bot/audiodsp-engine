@@ -28,7 +28,7 @@ PCM REAL EN COMA FLOTANTE (IEEE 32-bit Float)
            │
      ┌─────┴───────────────┐
      ▼                     ▼
-OboeBackend        AudioEffectBackend
+OboeBackend (native Oboe)        AudioEffectBackend (session integration)
 ```
 
 ---
@@ -77,9 +77,9 @@ Todo el procesamiento DSP se ejecuta en C++17 nativo sobre PCM real sin asignaci
 
 ## 4. PARÁMETROS DE COMPILACIÓN FIJADOS
 - **JDK:** OpenJDK 17
-- **Gradle Wrapper:** 8.5
-- **Android Gradle Plugin (AGP):** 8.2.2
-- **Kotlin:** 1.9.22
+- **Gradle Wrapper:** 8.9
+- **Android Gradle Plugin (AGP):** 8.7.3
+- **Kotlin:** 1.9.25
 - **compileSdk:** 34
 - **minSdk:** 24 (Android 7.0+)
 - **targetSdk:** 34 (Android 14)
@@ -94,7 +94,7 @@ Todo el procesamiento DSP se ejecuta en C++17 nativo sobre PCM real sin asignaci
 - **Pasos configurados:**
   1. Configuración de JDK 17 (Temurin).
   2. Instalación de Android SDK 34, Build-Tools 34.0.0, NDK 26.1.10909125 y CMake 3.22.1 con aceptación de licencias.
-  3. Compilación y ejecución de la suite nativa de 17 tests DSP y benchmark.
+  3. Compilación y ejecución de la suite nativa de 19 tests DSP y benchmark.
   4. Ejecución de `./gradlew clean`.
   5. Ejecución de `./gradlew test` (tests unitarios e integración en Kotlin).
   6. Compilación de la APK de depuración mediante `./gradlew assembleDebug` (compilando C++, JNI y CMake).
@@ -102,7 +102,7 @@ Todo el procesamiento DSP se ejecuta en C++17 nativo sobre PCM real sin asignaci
 
 ---
 
-## 6. RESULTADOS DE LOS TESTS NATIVOS AUTOMATIZADOS (17/17 PASADOS)
+## 6. RESULTADOS DE LOS TESTS NATIVOS AUTOMATIZADOS (19/19 PASADOS)
 La suite nativa de tests `eqsb_native_tests` arrojó los siguientes resultados:
 
 1. `EQ32_FlatResponse`: **PASS** (RMS idéntico con ganancia 0 dB, error < 0.005)

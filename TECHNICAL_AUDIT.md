@@ -53,11 +53,13 @@ El subsistema de audio de Android se organiza en cinco capas principales:
 
 ### C. Oboe / AAudio (Stream PCM Propio de la Aplicación)
 - **Capacidad real:**
-  Oboe permite abrir flujos `AAudio` (o `OpenSL ES`) de latencia ultrabaja en modo exclusivo o compartido, con callbacks en tiempo real ejecutados en hilos de alta prioridad (`SCHED_FIFO`).
+  Oboe abre el stream nativo directamente desde C++ y entrega buffers PCM float mediante callback.
 - **Ruta implementada en EQsb:**
   ```
-  Oboe / Callback -> PCM Float -> EQsbNativeDsp (JNI) -> EQsbDspEngine (C++) -> PCM Procesado -> AudioTrack / Salida
+  Oboe callback -> PCM Float -> EQsbDspEngine (C++) -> PCM procesado -> Oboe output stream
   ```
+- El puente JNI solo controla el ciclo de vida y la configuración; no copia PCM por cada bloque.
+- El stream de demostración puede generar una señal de prueba para verificar el motor. Un stream Oboe propio no es una captura universal de otras aplicaciones.
 - **Distinción obligatoria:**
   Oboe procesa **exclusivamente** el audio generado, cargado o reproducido por la propia aplicación EQsb. Oboe **no tiene privilegios** para interceptar el audio de otras aplicaciones del dispositivo.
 
@@ -80,7 +82,7 @@ El subsistema de audio de Android se organiza en cinco capas principales:
 ## 4. CONCLUSIÓN Y DECLARACIÓN DE HONESTIDAD TÉCNICA
 1. **EQsb implementa un motor DSP C++ 100% real:**
    - 32 filtros biquad RBJ reales que procesan PCM float en serie.
-   - Pre-Gain, Bass Boost, Tone, MDRC, AutoGain, Limiter, Master Gain y Balance modifican efectivamente la señal PCM.
+   - Pre-Gain, Bass Boost, Tone, MDRC, AutoGain, Spatial, Master Gain, Balance y Limiter final modifican efectivamente la señal PCM.
 2. **Backends separados y transparentes:**
    - **OboeBackend:** Garantiza procesamiento DSP en tiempo real sobre los flujos de audio de la aplicación.
    - **AudioEffectBackend:** Proporciona el puente de sesión para reproductores compatibles con sesiones de audio abiertas.
