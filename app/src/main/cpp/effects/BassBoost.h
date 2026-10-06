@@ -15,7 +15,7 @@ public:
     void initialize(float sampleRate, int channelCount);
     void reset();
 
-    void setEnabled(bool enabled) { enabled_ = enabled; }
+    void setEnabled(bool enabled) { enabled_ = enabled; updateFilters(); }
     bool isEnabled() const { return enabled_; }
 
     // strength: 0.0f (0%) to 1.0f (100%), maps to 0 dB to +12 dB boost

@@ -15,7 +15,12 @@ public:
     void initialize(float sampleRate, int channelCount);
     void reset();
 
-    void setEnabled(bool enabled) { enabled_ = enabled; }
+    void setEnabled(bool enabled) {
+        enabled_ = enabled;
+        updateBassFilter();
+        updateMidFilter();
+        updateTrebleFilter();
+    }
     bool isEnabled() const { return enabled_; }
 
     void setBassDb(float bassDb);
