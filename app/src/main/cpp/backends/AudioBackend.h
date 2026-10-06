@@ -1,10 +1,12 @@
 #ifndef EQSB_AUDIO_BACKEND_H
 #define EQSB_AUDIO_BACKEND_H
 
-#include "../EQsbDspEngine.h"
 #include <string>
 
 namespace eqsb {
+
+class EQsbDspEngine;
+
 namespace backends {
 
 enum class BackendType {

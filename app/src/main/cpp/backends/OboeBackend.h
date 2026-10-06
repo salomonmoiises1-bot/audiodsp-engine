@@ -4,6 +4,7 @@
 #include "AudioBackend.h"
 #include <atomic>
 #include <vector>
+#include <memory>
 
 namespace eqsb {
 namespace backends {
@@ -39,6 +40,11 @@ public:
     // Raw PCM Buffer -> EQsbDspEngine::process() -> Output Stream Buffer
     void onAudioReady(float* audioData, int numFrames);
 
+    // Opens/closes the actual native Oboe output stream.
+    // The stream is owned by EQsb; Oboe never taps another application's AudioFlinger stream.
+    bool startOboeStream();
+    void stopOboeStream();
+
     // Test tone generator for direct PCM DSP verification without file dependencies
     void setTestSignal(bool enabled, float frequencyHz = 440.0f, float amplitude = 0.5f);
 
@@ -53,6 +59,7 @@ private:
     float testFreqHz_{440.0f};
     float testAmplitude_{0.5f};
     float phase_{0.0f};
+    void* stream_{nullptr};
 };
 
 } // namespace backends

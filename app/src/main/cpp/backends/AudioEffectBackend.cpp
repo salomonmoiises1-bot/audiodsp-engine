@@ -1,4 +1,5 @@
 #include "AudioEffectBackend.h"
+#include "../EQsbDspEngine.h"
 #include <cstring>
 #include <sstream>
 
