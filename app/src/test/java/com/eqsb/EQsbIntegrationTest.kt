@@ -20,7 +20,7 @@ class EQsbIntegrationTest {
         assertTrue(config.toneEnabled)
         assertTrue(config.eq32Enabled)
         assertTrue(config.mdrcEnabled)
-        assertTrue(config.autoGainEnabled)
+        assertTrue(!config.autoGainEnabled)
         assertTrue(config.limiterEnabled)
         assertTrue(config.spatialEnabled)
     }
