@@ -32,8 +32,11 @@ class DspConfigRepository(context: Context) {
         private const val KEY_MDRC_HIGH_RATIO = "mdrc_high_ratio"
         private const val KEY_AUTOGAIN_ENABLED = "autogain_enabled"
         private const val KEY_AUTOGAIN_TARGET = "autogain_target"
+        private const val KEY_AUTOGAIN_MAX = "autogain_max_gain"
+        private const val KEY_AUTOGAIN_MIN = "autogain_min_gain"
         private const val KEY_LIMITER_ENABLED = "limiter_enabled"
         private const val KEY_LIMITER_CEILING = "limiter_ceiling"
+        private const val KEY_LIMITER_RELEASE = "limiter_release_ms"
         private const val KEY_SPATIAL_ENABLED = "spatial_enabled"
         private const val KEY_SPATIAL_WIDTH = "spatial_width"
         private const val KEY_MASTER_GAIN = "master_gain_db"
@@ -75,8 +78,11 @@ class DspConfigRepository(context: Context) {
             mdrcHighRatio = prefs.getFloat(KEY_MDRC_HIGH_RATIO, 3.5f),
             autoGainEnabled = prefs.getBoolean(KEY_AUTOGAIN_ENABLED, false),
             autoGainTargetDb = prefs.getFloat(KEY_AUTOGAIN_TARGET, -14.0f),
+            autoGainMaxGainDb = prefs.getFloat(KEY_AUTOGAIN_MAX, 12.0f),
+            autoGainMinGainDb = prefs.getFloat(KEY_AUTOGAIN_MIN, -18.0f),
             limiterEnabled = prefs.getBoolean(KEY_LIMITER_ENABLED, true),
             limiterCeilingDb = prefs.getFloat(KEY_LIMITER_CEILING, -0.1f),
+            limiterReleaseMs = prefs.getFloat(KEY_LIMITER_RELEASE, 80.0f),
             spatialEnabled = prefs.getBoolean(KEY_SPATIAL_ENABLED, false),
             spatialWidth = prefs.getFloat(KEY_SPATIAL_WIDTH, 0.0f),
             masterGainDb = prefs.getFloat(KEY_MASTER_GAIN, 0.0f),
@@ -111,9 +117,12 @@ class DspConfigRepository(context: Context) {
 
         editor.putBoolean(KEY_AUTOGAIN_ENABLED, config.autoGainEnabled)
         editor.putFloat(KEY_AUTOGAIN_TARGET, config.autoGainTargetDb)
+        editor.putFloat(KEY_AUTOGAIN_MAX, config.autoGainMaxGainDb)
+        editor.putFloat(KEY_AUTOGAIN_MIN, config.autoGainMinGainDb)
 
         editor.putBoolean(KEY_LIMITER_ENABLED, config.limiterEnabled)
         editor.putFloat(KEY_LIMITER_CEILING, config.limiterCeilingDb)
+        editor.putFloat(KEY_LIMITER_RELEASE, config.limiterReleaseMs)
 
         editor.putBoolean(KEY_SPATIAL_ENABLED, config.spatialEnabled)
         editor.putFloat(KEY_SPATIAL_WIDTH, config.spatialWidth)
