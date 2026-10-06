@@ -1,1 +1,241 @@
+#include "EQsbNativeDspJni.h"
+#include "../EQsbDspEngine.h"
+#include "../backends/AudioEffectBackend.h"
+#include <string>
+#include <vector>
 
+using namespace eqsb;
+
+static inline EQsbDspEngine* getEngine(jlong handle) {
+    return reinterpret_cast<EQsbDspEngine*>(handle);
+}
+
+extern "C" {
+
+JNIEXPORT jlong JNICALL Java_com_eqsb_jni_EQsbNativeDsp_createEngine(JNIEnv* /*env*/, jclass /*clazz*/) {
+    auto* engine = new EQsbDspEngine();
+    return reinterpret_cast<jlong>(engine);
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_destroyEngine(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle) {
+    auto* engine = getEngine(handle);
+    delete engine;
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_initialize(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle,
+                                                                 jint sampleRate, jint channelCount, jint framesPerBlock) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->initialize(sampleRate, channelCount, framesPerBlock);
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_reset(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->reset();
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_process(JNIEnv* env, jclass /*clazz*/, jlong handle,
+                                                              jfloatArray inBuffer, jint frames) {
+    auto* engine = getEngine(handle);
+    if (!engine || !inBuffer || frames <= 0) return;
+
+#ifdef EQSB_HAS_SYSTEM_JNI
+    jfloat* pcm = env->GetFloatArrayElements(inBuffer, nullptr);
+    if (pcm) {
+        engine->process(pcm, frames);
+        env->ReleaseFloatArrayElements(inBuffer, pcm, 0);
+    }
+#else
+    (void)env;
+#endif
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_processDirect(JNIEnv* env, jclass /*clazz*/, jlong handle,
+                                                                    jobject byteBuffer, jint frames) {
+    auto* engine = getEngine(handle);
+    if (!engine || !byteBuffer || frames <= 0) return;
+
+#ifdef EQSB_HAS_SYSTEM_JNI
+    float* pcm = static_cast<float*>(env->GetDirectBufferAddress(byteBuffer));
+    if (pcm) {
+        engine->process(pcm, frames);
+    }
+#else
+    (void)env;
+#endif
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setPreGain(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle, jfloat gainDb) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->getPreGain().setGainDb(gainDb);
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setBassBoost(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle,
+                                                                   jboolean enabled, jfloat strength) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->getBassBoost().setEnabled(enabled);
+        engine->getBassBoost().setStrength(strength);
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setTone(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle,
+                                                              jboolean enabled, jfloat bassDb, jfloat midDb, jfloat trebleDb) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->getToneControl().setEnabled(enabled);
+        engine->getToneControl().setBassDb(bassDb);
+        engine->getToneControl().setMidDb(midDb);
+        engine->getToneControl().setTrebleDb(trebleDb);
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setEQ32Enabled(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle, jboolean enabled) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->getEQ32().setEnabled(enabled);
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setBandGain(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle,
+                                                                  jint bandIndex, jfloat gainDb) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->getEQ32().setBandGain(bandIndex, gainDb);
+    }
+}
+
+JNIEXPORT jfloat JNICALL Java_com_eqsb_jni_EQsbNativeDsp_getBandGain(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle, jint bandIndex) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        return engine->getEQ32().getBandGain(bandIndex);
+    }
+    return 0.0f;
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setAllBandGains(JNIEnv* env, jclass /*clazz*/, jlong handle, jfloatArray gains) {
+    auto* engine = getEngine(handle);
+    if (!engine || !gains) return;
+
+#ifdef EQSB_HAS_SYSTEM_JNI
+    jsize len = env->GetArrayLength(gains);
+    jfloat* p = env->GetFloatArrayElements(gains, nullptr);
+    if (p) {
+        engine->getEQ32().setAllBandGains(p, len);
+        env->ReleaseFloatArrayElements(gains, p, JNI_ABORT);
+    }
+#else
+    (void)env;
+#endif
+}
+
+JNIEXPORT jfloatArray JNICALL Java_com_eqsb_jni_EQsbNativeDsp_getAllBandGains(JNIEnv* env, jclass /*clazz*/, jlong handle) {
+#ifdef EQSB_HAS_SYSTEM_JNI
+    auto* engine = getEngine(handle);
+    jfloatArray result = env->NewFloatArray(eq::NUM_EQ32_BANDS);
+    if (engine && result) {
+        float gains[eq::NUM_EQ32_BANDS];
+        engine->getEQ32().getAllBandGains(gains, eq::NUM_EQ32_BANDS);
+        env->SetFloatArrayRegion(result, 0, eq::NUM_EQ32_BANDS, gains);
+    }
+    return result;
+#else
+    (void)env;
+    (void)handle;
+    return nullptr;
+#endif
+}
+
+JNIEXPORT jfloat JNICALL Java_com_eqsb_jni_EQsbNativeDsp_getCenterFrequency(JNIEnv* /*env*/, jclass /*clazz*/, jint bandIndex) {
+    return eq::EQ32::getCenterFrequency(bandIndex);
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setMdrcEnabled(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle, jboolean enabled) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->getMDRC().setEnabled(enabled);
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setMdrcBand(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle,
+                                                                  jint bandIndex, jfloat threshDb, jfloat ratio,
+                                                                  jfloat attackMs, jfloat releaseMs, jfloat makeupDb) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        dynamics::BandCompressorConfig cfg;
+        cfg.thresholdDb = threshDb;
+        cfg.ratio = ratio;
+        cfg.attackMs = attackMs;
+        cfg.releaseMs = releaseMs;
+        cfg.makeupGainDb = makeupDb;
+        engine->getMDRC().setBandConfig(static_cast<dynamics::MDRC::BandIndex>(bandIndex), cfg);
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setAutoGain(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle,
+                                                                  jboolean enabled, jfloat targetDb, jfloat maxGainDb, jfloat minGainDb) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->getAutoGain().setEnabled(enabled);
+        engine->getAutoGain().setTargetDb(targetDb);
+        engine->getAutoGain().setMaxGainDb(maxGainDb);
+        engine->getAutoGain().setMinGainDb(minGainDb);
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setLimiter(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle,
+                                                                 jboolean enabled, jfloat ceilingDb, jfloat releaseMs) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->getLimiter().setEnabled(enabled);
+        engine->getLimiter().setCeilingDb(ceilingDb);
+        engine->getLimiter().setReleaseMs(releaseMs);
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setSpatial(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle,
+                                                                 jboolean enabled, jfloat width) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->getSpatial().setEnabled(enabled);
+        engine->getSpatial().setWidth(width);
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setMasterGain(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle, jfloat gainDb) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->getMasterGain().setGainDb(gainDb);
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setBalance(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle, jfloat balance) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->getBalance().setBalance(balance);
+    }
+}
+
+JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setBypass(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle, jboolean bypass) {
+    auto* engine = getEngine(handle);
+    if (engine) {
+        engine->setBypass(bypass);
+    }
+}
+
+JNIEXPORT jstring JNICALL Java_com_eqsb_jni_EQsbNativeDsp_getTechnicalAuditReport(JNIEnv* env, jclass /*clazz*/) {
+#ifdef EQSB_HAS_SYSTEM_JNI
+    std::string report = backends::AudioEffectBackend::getTechnicalAuditReport();
+    return env->NewStringUTF(report.c_str());
+#else
+    (void)env;
+    return nullptr;
+#endif
+}
+
+} // extern "C"
