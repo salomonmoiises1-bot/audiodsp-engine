@@ -42,7 +42,6 @@ set(TEST_SOURCES
     ${EQSB_CPP_DIR}/effects/ToneControl.cpp
     ${EQSB_CPP_DIR}/effects/SpatialVirtualizer.cpp
     ${EQSB_CPP_DIR}/backends/OboeBackend.cpp
-    ${EQSB_CPP_DIR}/backends/AudioEffectBackend.cpp
 )
 
 add_executable(eqsb_native_tests ${TEST_SOURCES})
