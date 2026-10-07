@@ -1,5 +1,6 @@
 #include "test_framework.h"
 #include "../../main/cpp/EQsbDspEngine.h"
+#include "../../main/cpp/backends/AudioEffectBackend.h"
 #include <vector>
 
 using namespace eqsb;
@@ -80,4 +81,26 @@ EQSB_TEST(Integration_EngineReset) {
 
     float postPeak = calculatePeak(silence.data(), frames, 2);
     return assertNear(postPeak, 0.0f, 0.00001f, "After reset, silent input must produce silent output");
+}
+
+
+EQSB_TEST(AudioEffectBackend_MonoBufferSafety) {
+    static_assert(eq::NUM_EQ32_BANDS == 32, "EQ32 must remain exactly 32 bands");
+
+    EQsbDspEngine engine;
+    engine.initialize(48000, 2, 256);
+
+    backends::AudioEffectBackend backend;
+    backend.setDspEngine(&engine);
+    if (!assertTrue(backend.start(), "AudioEffect backend bridge should enter processing state")) return false;
+
+    constexpr int frames = 256;
+    std::vector<float> mono(frames, 0.25f);
+    backend.processEffect(mono.data(), mono.data(), frames, 1);
+    backend.stop();
+
+    for (float sample : mono) {
+        if (!std::isfinite(sample)) return assertTrue(false, "Mono AudioEffect buffer must remain finite");
+    }
+    return true;
 }
