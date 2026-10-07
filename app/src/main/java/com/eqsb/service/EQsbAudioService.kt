@@ -76,7 +76,15 @@ class EQsbAudioService : Service() {
         nativeDsp = EQsbNativeDsp.create()
         nativeDsp.initialize(sampleRate = 48000, channels = 2, framesPerBlock = 256)
 
-        val initialConfig = repository.loadConfig()
+        val loadedConfig = repository.loadConfig()
+        // Oboe is an EQsb-owned PCM route and must never be used as a substitute
+        // for the external AudioFlinger effect path. Migrate old persisted configs
+        // away from OBOE so enabling EQsb cannot create a second audible output.
+        val initialConfig = if (loadedConfig.backendType == AudioBackendType.OBOE) {
+            loadedConfig.copy(backendType = AudioBackendType.AUDIO_EFFECT).also { repository.saveConfig(it) }
+        } else {
+            loadedConfig
+        }
         _configFlow.value = initialConfig
         nativeDsp.applyConfig(initialConfig)
 
