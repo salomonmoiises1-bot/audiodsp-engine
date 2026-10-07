@@ -37,8 +37,14 @@ void EQsbDspEngine::reset() {
 }
 
 void EQsbDspEngine::process(float* interleavedPcm, int frames) {
+    process(interleavedPcm, frames, channelCount_);
+}
+
+void EQsbDspEngine::process(float* interleavedPcm, int frames, int channels) {
     if (!interleavedPcm || frames <= 0) return;
     if (bypass_.load(std::memory_order_relaxed)) return;
+
+    const int activeChannels = std::min(std::max(channels, 1), 2);
 
     // Never block the realtime callback on a configuration update. A control-thread
     // update may make this block pass through unchanged for one callback, which is
@@ -46,17 +52,17 @@ void EQsbDspEngine::process(float* interleavedPcm, int frames) {
     std::unique_lock<std::mutex> lock(configMutex_, std::try_to_lock);
     if (!lock.owns_lock()) return;
 
-    preGain_.process(interleavedPcm, frames, channelCount_);
-    bassBoost_.process(interleavedPcm, frames, channelCount_);
-    toneControl_.process(interleavedPcm, frames, channelCount_);
-    eq32_.process(interleavedPcm, frames, channelCount_);
-    mdrc_.process(interleavedPcm, frames, channelCount_);
-    autoGain_.process(interleavedPcm, frames, channelCount_);
-    spatial_.process(interleavedPcm, frames, channelCount_);
-    masterGain_.process(interleavedPcm, frames, channelCount_);
-    balance_.process(interleavedPcm, frames, channelCount_);
+    preGain_.process(interleavedPcm, frames, activeChannels);
+    bassBoost_.process(interleavedPcm, frames, activeChannels);
+    toneControl_.process(interleavedPcm, frames, activeChannels);
+    eq32_.process(interleavedPcm, frames, activeChannels);
+    mdrc_.process(interleavedPcm, frames, activeChannels);
+    autoGain_.process(interleavedPcm, frames, activeChannels);
+    spatial_.process(interleavedPcm, frames, activeChannels);
+    masterGain_.process(interleavedPcm, frames, activeChannels);
+    balance_.process(interleavedPcm, frames, activeChannels);
     // Limiter is deliberately last so later gain/spatial stages cannot recreate peaks.
-    limiter_.process(interleavedPcm, frames, channelCount_);
+    limiter_.process(interleavedPcm, frames, activeChannels);
 }
 
 bool EQsbDspEngine::startOboe() {

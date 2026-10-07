@@ -31,6 +31,10 @@ public:
     // In-place real PCM processing. The realtime callback never waits for a configuration lock.
     // Order: Pre-Gain -> Bass Boost -> Tone -> EQ32 -> MDRC -> AutoGain -> Spatial -> Master -> Balance -> final Limiter
     void process(float* interleavedPcm, int frames);
+    // Process a buffer using its actual interleaved channel count (1..2).
+    // This overload is used by backend bridges whose channel layout may differ
+    // from the engine's default configuration and prevents mono-buffer overruns.
+    void process(float* interleavedPcm, int frames, int channels);
 
     // DSP Configuration Accessors
     dsp::PreGain& getPreGain() { return preGain_; }
