@@ -4,52 +4,57 @@ import android.util.Log
 import com.eqsb.core.AudioBackendType
 import com.eqsb.core.DspConfig
 import com.eqsb.jni.EQsbNativeDsp
-import java.util.UUID
 
 class AudioEffectAudioBackend : IAudioBackend {
-
-    override val type: AudioBackendType = AudioBackendType.AUDIO_EFFECT
-    override val name: String = "Android AudioEffect / AudioFlinger Session Bridge"
-
+    override val type = AudioBackendType.AUDIO_EFFECT
+    override val name = "Android AudioEffect / AudioFlinger Session Bridge"
     private var running = false
     override val isRunning: Boolean get() = running
-
-    private var nativeDsp: EQsbNativeDsp? = null
-    private val activeSessions = mutableSetOf<Int>()
-
-    companion object {
-        private const val TAG = "AudioEffectBackend"
-        // Custom EQsb Effect UUID
-        val EQSB_EFFECT_UUID: UUID = UUID.fromString("7421cb80-5a33-4f9e-a89a-0242ac120002")
-    }
+    private val controllers = mutableMapOf<Int, EQsbEffectController>()
+    private var currentConfig = DspConfig()
 
     override fun start(dsp: EQsbNativeDsp): Boolean {
-        nativeDsp = dsp
-        // A normal APK cannot register a custom native effect UUID with AudioFlinger.
-        // Do not report this backend as active without the system/vendor effect.
-        running = false
-        Log.e(TAG, "AudioEffect backend unavailable in a normal APK: install/register the EQsb Effects HAL to use this route.")
-        return false
+        running = true
+        Log.i(TAG, "AudioEffect controller started; PCM remains owned by AudioFlinger")
+        controllers.values.forEach { attachConfig(it) }
+        return true
     }
 
     override fun stop() {
+        controllers.values.forEach { it.close() }
+        controllers.clear()
         running = false
-        activeSessions.clear()
-        Log.i(TAG, "AudioEffect session bridge stopped.")
     }
 
     fun onSessionOpened(sessionId: Int) {
-        if (!running) return
-        activeSessions.add(sessionId)
-        Log.i(TAG, "Attached to audio session $sessionId")
+        if (!running || sessionId <= 0) return
+        controllers.remove(sessionId)?.close()
+        runCatching { EQsbEffectController(sessionId) }
+            .onSuccess { controller ->
+                controllers[sessionId] = controller
+                attachConfig(controller)
+                controller.setEnabled(!currentConfig.bypass)
+                Log.i(TAG, "EQsb AudioEffect attached to session $sessionId")
+            }
+            .onFailure { Log.e(TAG, "Could not attach EQsb effect to session $sessionId", it) }
     }
 
     fun onSessionClosed(sessionId: Int) {
-        activeSessions.remove(sessionId)
-        Log.i(TAG, "Detached from audio session $sessionId")
+        controllers.remove(sessionId)?.close()
+        Log.i(TAG, "EQsb AudioEffect detached from session $sessionId")
     }
 
     override fun applyConfig(config: DspConfig) {
-        nativeDsp?.applyConfig(config)
+        currentConfig = config
+        controllers.values.forEach { attachConfig(it) }
     }
+
+    private fun attachConfig(controller: EQsbEffectController) {
+        runCatching {
+            controller.apply(currentConfig)
+            controller.setEnabled(!currentConfig.bypass)
+        }.onFailure { Log.e(TAG, "Failed to apply EQsb AudioEffect configuration", it) }
+    }
+
+    companion object { private const val TAG = "EQsbAudioEffect" }
 }
