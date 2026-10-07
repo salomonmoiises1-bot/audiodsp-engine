@@ -1,28 +1,39 @@
 #include "EQsbNativeDspJni.h"
 #include "../EQsbDspEngine.h"
-#include "../backends/AudioEffectBackend.h"
+#include "../backends/OboeBackend.h"
 #include <string>
 #include <vector>
 #include <mutex>
+#include <memory>
+#include <sstream>
 
 using namespace eqsb;
 
-static inline EQsbDspEngine* getEngine(jlong handle) {
-    return reinterpret_cast<EQsbDspEngine*>(handle);
-}
+struct NativeContext {
+    EQsbDspEngine engine;
+    backends::OboeBackend oboe;
+};
 
+static inline NativeContext* getContext(jlong handle) {
+    return reinterpret_cast<NativeContext*>(handle);
+}
+static inline EQsbDspEngine* getEngine(jlong handle) {
+    auto* ctx = getContext(handle);
+    return ctx ? &ctx->engine : nullptr;
+}
 #define EQSB_LOCK_ENGINE(engine) std::lock_guard<std::mutex> eqsbEngineLock((engine)->configMutex())
 
 extern "C" {
 
 JNIEXPORT jlong JNICALL Java_com_eqsb_jni_EQsbNativeDsp_createEngine(JNIEnv* /*env*/, jclass /*clazz*/) {
-    auto* engine = new EQsbDspEngine();
-    return reinterpret_cast<jlong>(engine);
+    auto* ctx = new NativeContext();
+    ctx->oboe.setDspEngine(&ctx->engine);
+    return reinterpret_cast<jlong>(ctx);
 }
 
 JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_destroyEngine(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle) {
-    auto* engine = getEngine(handle);
-    delete engine;
+    auto* ctx = getContext(handle);
+    if (ctx) { ctx->oboe.stop(); delete ctx; }
 }
 
 JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_initialize(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle,
@@ -35,14 +46,17 @@ JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_initialize(JNIEnv* /*env*
 }
 
 JNIEXPORT jboolean JNICALL Java_com_eqsb_jni_EQsbNativeDsp_startOboe(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle) {
-    auto* engine = getEngine(handle);
-    if (!engine) return JNI_FALSE;
-    return engine->startOboe() ? JNI_TRUE : JNI_FALSE;
+    auto* ctx = getContext(handle);
+    if (!ctx) return JNI_FALSE;
+    ctx->oboe.setSampleRate(ctx->engine.getSampleRate());
+    ctx->oboe.setChannelCount(ctx->engine.getChannelCount());
+    ctx->oboe.setFramesPerCallback(ctx->engine.getFramesPerBlock());
+    return ctx->oboe.start() ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_stopOboe(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle) {
-    auto* engine = getEngine(handle);
-    if (engine) engine->stopOboe();
+    auto* ctx = getContext(handle);
+    if (ctx) ctx->oboe.stop();
 }
 
 JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_reset(JNIEnv* /*env*/, jclass /*clazz*/, jlong handle) {
@@ -259,7 +273,7 @@ JNIEXPORT void JNICALL Java_com_eqsb_jni_EQsbNativeDsp_setBypass(JNIEnv* /*env*/
 
 JNIEXPORT jstring JNICALL Java_com_eqsb_jni_EQsbNativeDsp_getTechnicalAuditReport(JNIEnv* env, jclass /*clazz*/) {
 #ifdef EQSB_HAS_SYSTEM_JNI
-    std::string report = backends::AudioEffectBackend::getTechnicalAuditReport();
+    std::string report = "EQsb native DSP core: AudioEffect integration is provided by platform/eqsb_effect; this APK JNI library does not intercept external audio by itself.";
     return env->NewStringUTF(report.c_str());
 #else
     (void)env;
