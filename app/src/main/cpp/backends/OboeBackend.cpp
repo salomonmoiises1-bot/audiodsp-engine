@@ -76,6 +76,25 @@ bool OboeBackend::startOboeStream() {
         return false;
     }
 
+    // Oboe may negotiate a different sample rate/channel count than requested.
+    // The DSP coefficients must use the actual stream format, otherwise filters
+    // are designed for (for example) 48 kHz while the device is rendering at
+    // 44.1 kHz. Reconfigure the engine before requestStart(), when the callback
+    // cannot yet be running.
+    const int actualSampleRate = opened->getSampleRate();
+    const int actualChannelCount = opened->getChannelCount();
+    const int actualFramesPerCallback = opened->getFramesPerDataCallback();
+    if (dspEngine_ && actualSampleRate > 0 && actualChannelCount > 0) {
+        dspEngine_->initialize(actualSampleRate, actualChannelCount,
+                               actualFramesPerCallback > 0 ? actualFramesPerCallback
+                                                          : framesPerCallback_);
+        sampleRate_ = actualSampleRate;
+        channelCount_ = actualChannelCount;
+        if (actualFramesPerCallback > 0) {
+            framesPerCallback_ = actualFramesPerCallback;
+        }
+    }
+
     // Keep the callback object alive for the complete stream lifetime.
     {
         std::lock_guard<std::mutex> lock(gCallbackMutex);
