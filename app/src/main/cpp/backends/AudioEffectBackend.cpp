@@ -39,7 +39,7 @@ void AudioEffectBackend::processEffect(float* inBuffer, float* outBuffer, int fr
     }
 
     if (dspEngine_) {
-        dspEngine_->process(outBuffer, frames);
+        dspEngine_->process(outBuffer, frames, channels);
     }
 }
 
