@@ -54,7 +54,7 @@ data class DspConfig(
     val bypass: Boolean = false,
 
     // Active Backend
-    val backendType: AudioBackendType = AudioBackendType.OBOE
+    val backendType: AudioBackendType = AudioBackendType.AUDIO_EFFECT
 ) {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
