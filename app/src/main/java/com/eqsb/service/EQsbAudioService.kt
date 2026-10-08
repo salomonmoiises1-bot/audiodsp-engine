@@ -5,11 +5,8 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
-import android.media.audiofx.AudioEffect
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
@@ -41,21 +38,6 @@ class EQsbAudioService : Service() {
     private val _isServiceActive = MutableStateFlow(false)
     val isServiceActive: StateFlow<Boolean> = _isServiceActive.asStateFlow()
 
-    private val sessionReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent == null) return
-            val action = intent.action
-            val sessionId = intent.getIntExtra(AudioEffect.EXTRA_AUDIO_SESSION, 0)
-            if (action == AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION) {
-                Log.i(TAG, "Received OPEN_AUDIO_EFFECT_CONTROL_SESSION for session: $sessionId")
-                effectBackend.onSessionOpened(sessionId)
-            } else if (action == AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION) {
-                Log.i(TAG, "Received CLOSE_AUDIO_EFFECT_CONTROL_SESSION for session: $sessionId")
-                effectBackend.onSessionClosed(sessionId)
-            }
-        }
-    }
-
     inner class LocalBinder : Binder() {
         fun getService(): EQsbAudioService = this@EQsbAudioService
     }
@@ -76,28 +58,9 @@ class EQsbAudioService : Service() {
         nativeDsp = EQsbNativeDsp.create()
         nativeDsp.initialize(sampleRate = 48000, channels = 2, framesPerBlock = 256)
 
-        val loadedConfig = repository.loadConfig()
-        // Oboe is an EQsb-owned PCM route and must never be used as a substitute
-        // for the external AudioFlinger effect path. Migrate old persisted configs
-        // away from OBOE so enabling EQsb cannot create a second audible output.
-        val initialConfig = if (loadedConfig.backendType == AudioBackendType.OBOE) {
-            loadedConfig.copy(backendType = AudioBackendType.AUDIO_EFFECT).also { repository.saveConfig(it) }
-        } else {
-            loadedConfig
-        }
+        val initialConfig = repository.loadConfig().copy(backendType = AudioBackendType.AUDIO_EFFECT)
         _configFlow.value = initialConfig
         nativeDsp.applyConfig(initialConfig)
-
-        // Register for media session broadcasts
-        val filter = IntentFilter().apply {
-            addAction(AudioEffect.ACTION_OPEN_AUDIO_EFFECT_CONTROL_SESSION)
-            addAction(AudioEffect.ACTION_CLOSE_AUDIO_EFFECT_CONTROL_SESSION)
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(sessionReceiver, filter, Context.RECEIVER_EXPORTED)
-        } else {
-            registerReceiver(sessionReceiver, filter)
-        }
 
         createNotificationChannel()
     }
@@ -179,11 +142,6 @@ class EQsbAudioService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         stopEngine()
-        try {
-            unregisterReceiver(sessionReceiver)
-        } catch (e: Exception) {
-            Log.w(TAG, "Error unregistering receiver: ${e.message}")
-        }
         nativeDsp.destroy()
     }
 
