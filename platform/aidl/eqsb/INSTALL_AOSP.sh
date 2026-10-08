@@ -1,1 +1,18 @@
-
+#!/bin/bash
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+AOSP_ROOT="${1:?usage: INSTALL_AOSP.sh /path/to/aosp}"
+DEST="$AOSP_ROOT/hardware/interfaces/audio/aidl/default/eqsb"
+mkdir -p "$DEST/dsp" "$DEST/eq" "$DEST/dynamics" "$DEST/effects"
+cp "$HERE/EQsbEffect.h" "$HERE/EQsbEffect.cpp" "$DEST/"
+cp "$HERE/Android.bp" "$DEST/"
+cp "$HERE/audio_effects_config_eqsb.xml" "$DEST/"
+cp "$HERE"/../../../app/src/main/cpp/EQsbDspEngine.{h,cpp} "$DEST/"
+cp "$HERE"/../../../app/src/main/cpp/dsp/BiquadFilter.{h,cpp} "$DEST/dsp/"
+cp "$HERE"/../../../app/src/main/cpp/dsp/DspUtils.h "$DEST/dsp/"
+cp "$HERE"/../../../app/src/main/cpp/dsp/{PreGain,MasterGain,Balance}.h "$DEST/dsp/"
+cp "$HERE"/../../../app/src/main/cpp/eq/EQ32.{h,cpp} "$DEST/eq/"
+cp "$HERE"/../../../app/src/main/cpp/dynamics/{MDRC,AutoGain,Limiter}.{h,cpp} "$DEST/dynamics/"
+cp "$HERE"/../../../app/src/main/cpp/effects/{BassBoost,ToneControl,SpatialVirtualizer}.{h,cpp} "$DEST/effects/"
+echo "EQsb AIDL effect staged at $DEST"
+echo "Merge audio_effects_config_eqsb.xml into hardware/interfaces/audio/aidl/default/audio_effects_config.xml (or the device vendor AIDL effects config)."

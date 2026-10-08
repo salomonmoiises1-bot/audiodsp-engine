@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<audio_effects_conf version="2.0" xmlns="http://schemas.android.com/audio/audio_effects_conf/v2_0">
+    <libraries>
+        <library name="eqsb_aidl" path="libeqsb_aidl_effect.so"/>
+    </libraries>
+    <effects>
+        <effect name="eqsb_global" library="eqsb_aidl"
+                uuid="7421cb80-5a33-4f9e-a89a-0242ac120002"
+                type="7421cb80-5a33-4f9e-a89a-0242ac120001"/>
+    </effects>
+    <postprocess>
+        <stream type="music">
+            <apply effect="eqsb_global"/>
+        </stream>
+    </postprocess>
+</audio_effects_conf>

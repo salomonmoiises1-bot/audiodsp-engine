@@ -1,0 +1,30 @@
+cc_library_shared {
+    name: "libeqsb_aidl_effect",
+    defaults: [
+        "aidlaudioeffectservice_defaults",
+        "latest_android_media_audio_common_types_ndk_shared",
+        "latest_android_hardware_audio_effect_ndk_shared",
+    ],
+    srcs: [
+        "EQsbEffect.cpp",
+        "EQsbDspEngine.cpp",
+        "dsp/BiquadFilter.cpp",
+        "eq/EQ32.cpp",
+        "dynamics/MDRC.cpp",
+        "dynamics/AutoGain.cpp",
+        "dynamics/Limiter.cpp",
+        "effects/BassBoost.cpp",
+        "effects/ToneControl.cpp",
+        "effects/SpatialVirtualizer.cpp",
+        ":effectCommonFile",
+    ],
+    include_dirs: [
+        ".",
+        "dsp",
+        "eq",
+        "dynamics",
+        "effects",
+    ],
+    relative_install_path: "soundfx",
+    visibility: ["//visibility:public"],
+}
