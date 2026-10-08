@@ -8,7 +8,6 @@ if(MSVC)
 else()
     add_compile_options(-O3 -ffast-math -Wall -Wextra -Wno-unused-parameter)
 endif()
-
 set(EQSB_DSP_CORE_SOURCES
     EQsbDspEngine.cpp
     dsp/BiquadFilter.cpp
@@ -20,35 +19,13 @@ set(EQSB_DSP_CORE_SOURCES
     effects/ToneControl.cpp
     effects/SpatialVirtualizer.cpp
 )
-
 add_library(eqsb_dsp_core STATIC ${EQSB_DSP_CORE_SOURCES})
-target_include_directories(eqsb_dsp_core PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/dsp
-    ${CMAKE_CURRENT_SOURCE_DIR}/eq
-    ${CMAKE_CURRENT_SOURCE_DIR}/dynamics
-    ${CMAKE_CURRENT_SOURCE_DIR}/effects
-)
-
-add_library(eqsb_dsp SHARED
-    jni/EQsbNativeDspJni.cpp
-    backends/OboeBackend.cpp
-)
-target_include_directories(eqsb_dsp PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}
-    ${CMAKE_CURRENT_SOURCE_DIR}/dsp
-    ${CMAKE_CURRENT_SOURCE_DIR}/eq
-    ${CMAKE_CURRENT_SOURCE_DIR}/dynamics
-    ${CMAKE_CURRENT_SOURCE_DIR}/effects
-    ${CMAKE_CURRENT_SOURCE_DIR}/backends
-    ${CMAKE_CURRENT_SOURCE_DIR}/jni
-)
+target_include_directories(eqsb_dsp_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/dsp ${CMAKE_CURRENT_SOURCE_DIR}/eq ${CMAKE_CURRENT_SOURCE_DIR}/dynamics ${CMAKE_CURRENT_SOURCE_DIR}/effects ${CMAKE_CURRENT_SOURCE_DIR}/backends)
+add_library(eqsb_dsp SHARED jni/EQsbNativeDspJni.cpp backends/OboeBackend.cpp)
+target_include_directories(eqsb_dsp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/dsp ${CMAKE_CURRENT_SOURCE_DIR}/eq ${CMAKE_CURRENT_SOURCE_DIR}/dynamics ${CMAKE_CURRENT_SOURCE_DIR}/effects ${CMAKE_CURRENT_SOURCE_DIR}/backends ${CMAKE_CURRENT_SOURCE_DIR}/jni)
 target_link_libraries(eqsb_dsp PRIVATE eqsb_dsp_core)
-
 if(ANDROID)
     find_library(log-lib log)
     find_package(oboe REQUIRED CONFIG)
     target_link_libraries(eqsb_dsp PRIVATE ${log-lib} oboe::oboe)
 endif()
-
-add_library(eqsb_dsp_static ALIAS eqsb_dsp_core)
