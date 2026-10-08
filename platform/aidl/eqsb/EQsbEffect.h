@@ -5,7 +5,7 @@
 #include <memory>
 #include <vector>
 #include "effect-impl/EffectImpl.h"
-#include "../../../app/src/main/cpp/EQsbDspEngine.h"
+#include "EQsbDspEngine.h"
 
 namespace aidl::android::hardware::audio::effect {
 
