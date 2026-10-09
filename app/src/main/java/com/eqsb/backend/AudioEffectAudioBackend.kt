@@ -1,10 +1,7 @@
 package com.eqsb.backend
 
 import android.content.Context
-import android.media.AudioAttributes
-import android.media.AudioFormat
-import android.media.AudioPlaybackCaptureConfiguration
-import android.media.AudioRecord
+import android.media.*
 import android.media.projection.MediaProjection
 import android.os.Process
 import android.util.Log
@@ -15,10 +12,10 @@ import kotlinx.coroutines.*
 import java.util.UUID
 
 class AudioEffectAudioBackend(private val context: Context? = null) : IAudioBackend {
-    override val type: AudioBackendType = AudioBackendType.AUDIO_EFFECT
-    override val name: String = "Android AIDL AudioEffect / AudioFlinger Global Mix"
+    override val type = AudioBackendType.AUDIO_EFFECT
+    override val name = "Android AIDL AudioEffect / AudioFlinger Global Mix"
+    override val isRunning get() = running
     private var running = false
-    override val isRunning: Boolean get() = running
 
     companion object {
         private const val TAG = "EQsbAudioEffect"
@@ -27,47 +24,37 @@ class AudioEffectAudioBackend(private val context: Context? = null) : IAudioBack
 
     private var projection: MediaProjection? = null
     private var record: AudioRecord? = null
+    private var track: AudioTrack? = null
     private var job: Job? = null
     private var nativeDsp: EQsbNativeDsp? = null
 
-    // NUEVO: no rompe nada, solo agrega
     fun setMediaProjection(mp: MediaProjection) {
         projection = mp
-        if (running) {
-            stopInternal()
-            startInternal()
-        }
+        if (running) { stopInternal(); startInternal() }
     }
 
     override fun start(dsp: EQsbNativeDsp): Boolean {
         nativeDsp = dsp
+        nativeDsp?.initialize(48000, 2, 256)
         running = true
-        Log.i(TAG, "Backend marcado como running, esperando MediaProjection si hace falta")
-        if (projection != null) {
-            return startInternal()
-        }
-        // Devuelve true para que EQsbAudioService NO haga stopSelf()
-        // cuando aún no diste permiso de proyección
-        return true
+        if (projection != null) startInternal()
+        return true // importante: true para que no haga stopSelf()
     }
 
-    private fun startInternal(): Boolean {
-        if (projection == null) return false
+    private fun startInternal() {
+        if (projection == null) return
         try {
-            // Solo YouTube / Spotify / AIMP
             val builder = AudioPlaybackCaptureConfiguration.Builder(projection!!)
                 .addMatchingUsage(AudioAttributes.USAGE_MEDIA)
-                .addMatchingUsage(AudioAttributes.USAGE_GAME)
-                .excludeUid(Process.myUid()) // anti-eco
+                .excludeUid(Process.myUid())
 
-            // Filtra por UID si tenés Context (opcional, no rompe si no)
             context?.let { ctx ->
                 try {
                     val pm = ctx.packageManager
-                    listOf("com.google.android.youtube", "com.spotify.music", "com.aimp.player").forEach { pkg ->
-                        try { builder.addMatchingUid(pm.getPackageUid(pkg, 0)) } catch (_: Exception) {}
+                    listOf("com.google.android.youtube","com.spotify.music","com.aimp.player").forEach { pkg ->
+                        try { builder.addMatchingUid(pm.getPackageUid(pkg,0)) } catch (_: Exception){}
                     }
-                } catch (_: Exception) {}
+                } catch (_: Exception){}
             }
 
             val captureConfig = builder.build()
@@ -84,45 +71,45 @@ class AudioEffectAudioBackend(private val context: Context? = null) : IAudioBack
                 .setBufferSizeInBytes(minBuf * 4)
                 .build()
 
+            track = AudioTrack.Builder()
+                .setAudioAttributes(AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_GAME) // diferente a MEDIA para poder mutear original
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build())
+                .setAudioFormat(format)
+                .setBufferSizeInBytes(minBuf * 4)
+                .setTransferMode(AudioTrack.MODE_STREAM)
+                .build()
+
             record?.startRecording()
+            track?.play()
+
             job = CoroutineScope(Dispatchers.Default).launch {
-                val buf = FloatArray(1024 * 2) // stereo
+                val buf = FloatArray(1024 * 2)
                 while (isActive) {
-                    val read = record?.read(buf, 0, buf.size, AudioRecord.READ_BLOCKING) ?: 0
-                    if (read > 0) {
-                        // Usa tu método real de EQsbNativeDsp - no cambia firma
-                        try {
-                            nativeDsp?.processCapture(buf, read)
-                        } catch (_: Exception) {
-                            // fallback si tu native se llama distinto
-                            try { nativeDsp?.process(buf) } catch (_: Exception) {}
-                        }
+                    val readFloats = record?.read(buf, 0, buf.size, AudioRecord.READ_BLOCKING) ?: 0
+                    if (readFloats > 0) {
+                        val frames = readFloats / 2
+                        nativeDsp?.processAudio(buf, frames) // tu EQ32.h
+                        track?.write(buf, 0, readFloats, AudioTrack.WRITE_BLOCKING)
                     }
                 }
             }
-            Log.i(TAG, "Captura iniciada para YouTube/Spotify/AIMP sin mic")
-            return true
+            Log.i(TAG, "EQ activo para YouTube/Spotify/AIMP sin mic")
         } catch (e: Exception) {
-            Log.e(TAG, "Fallo captura", e)
-            return true // igual true para no matar el servicio
+            Log.e(TAG, "Error captura", e)
         }
     }
 
     private fun stopInternal() {
-        job?.cancel()
-        job = null
-        try { record?.stop() } catch (_: Exception) {}
-        try { record?.release() } catch (_: Exception) {}
-        record = null
+        job?.cancel(); job = null
+        try { record?.stop() } catch (_: Exception){}
+        try { record?.release() } catch (_: Exception){}
+        try { track?.stop() } catch (_: Exception){}
+        try { track?.release() } catch (_: Exception){}
+        record = null; track = null
     }
 
-    override fun stop() {
-        stopInternal()
-        running = false
-    }
-
-    override fun applyConfig(config: DspConfig) {
-        // Mismo transporte que tenías, no rompe dependencia
-        try { nativeDsp?.applyConfig(config) } catch (_: Exception) {}
-    }
+    override fun stop() { stopInternal(); running = false }
+    override fun applyConfig(config: DspConfig) { nativeDsp?.applyConfig(config) }
 }
