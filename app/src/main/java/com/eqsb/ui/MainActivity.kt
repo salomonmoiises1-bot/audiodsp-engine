@@ -3,6 +3,7 @@ package com.eqsb.ui
 import android.app.Activity
 import android.content.*
 import android.media.AudioManager
+import android.media.projection.MediaProjection
 import android.media.projection.MediaProjectionManager
 import android.os.Bundle
 import android.os.IBinder
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.eqsb.backend.AudioEffectAudioBackend
 import com.eqsb.service.EQsbAudioService
@@ -33,12 +35,9 @@ class MainActivity : ComponentActivity() {
 
     private val serviceConnection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
-            val local = binder as? EQsbAudioService.LocalBinder
-            audioService = local?.getService()
-            // Si ya teníamos proyección, inyectala
-            mediaProjection?.let { mp ->
-                (audioService?.getBackend() as? AudioEffectAudioBackend)?.setMediaProjection(mp)
-            }
+            val local = binder as EQsbAudioService.LocalBinder
+            audioService = local.getService()
+            mediaProjection?.let { mp -> audioService?.injectMediaProjection(mp) }
         }
         override fun onServiceDisconnected(name: ComponentName?) { audioService = null }
     }
@@ -46,61 +45,49 @@ class MainActivity : ComponentActivity() {
     private val projectionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == Activity.RESULT_OK) {
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
             val mp = projectionManager.getMediaProjection(result.resultCode, result.data!!)
             mediaProjection = mp
-            // Inyectar a tu backend sin romper DspConfigRepository
-            (audioService?.getBackend() as? AudioEffectAudioBackend)?.setMediaProjection(mp)
-
-            // Mutear el YouTube original para que solo escuches la copia ecualizada por GAME
+            audioService?.injectMediaProjection(mp)
             val am = getSystemService(Context.AUDIO_SERVICE) as AudioManager
             am.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
-
-            // Opcional: avisar a ViewModel para que muestre estado
-            viewModel.onProjectionGranted()
         }
+    }
+
+    fun requestProjection() {
+        projectionLauncher.launch(projectionManager.createScreenCaptureIntent())
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Bind al servicio que ya usa tu ViewModel
-        bindService(
-            Intent(this, EQsbAudioService::class.java),
-            serviceConnection,
-            Context.BIND_AUTO_CREATE
-        )
-
+        bindService(Intent(this, EQsbAudioService::class.java), serviceConnection, Context.BIND_AUTO_CREATE)
         setContent {
             EQsbTheme {
-                MainAppScaffold(
-                    viewModel = viewModel,
-                    onRequestCapture = { projectionLauncher.launch(projectionManager.createScreenCaptureIntent()) }
-                )
+                MainAppScaffold(viewModel = viewModel)
             }
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        unbindService(serviceConnection)
+        try { unbindService(serviceConnection) } catch (_: Exception) {}
         mediaProjection?.stop()
     }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainAppScaffold(viewModel: EQsbViewModel, onRequestCapture: () -> Unit) {
+fun MainAppScaffold(viewModel: EQsbViewModel) {
     var selectedTab by remember { mutableStateOf(0) }
     val tabTitles = listOf("Dashboard", "EQ32", "Dynamics", "Tone & FX", "Output", "Presets", "Audit", "Settings")
+    val context = LocalContext.current
 
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("EQsb — Real C++ DSP Audio Engine", style = MaterialTheme.typography.titleLarge) },
                 actions = {
-                    // Botón que no rompe nada, solo pide permiso para YouTube/Spotify/AIMP
-                    TextButton(onClick = onRequestCapture) {
+                    TextButton(onClick = { (context as? MainActivity)?.requestProjection() }) {
                         Text("EQ YouTube/Spotify", color = AccentCyan)
                     }
                 },
