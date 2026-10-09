@@ -25,6 +25,7 @@ cc_library_shared {
         "dynamics",
         "effects",
     ],
+    vendor: true,
     relative_install_path: "soundfx",
     visibility: ["//visibility:public"],
 }
