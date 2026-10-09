@@ -5,7 +5,6 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
-import android.content.Context
 import android.content.Intent
 import android.media.projection.MediaProjection
 import android.os.Binder
@@ -28,15 +27,12 @@ class EQsbAudioService : Service() {
     private val binder = LocalBinder()
     private lateinit var repository: DspConfigRepository
     private lateinit var nativeDsp: EQsbNativeDsp
-
-    // FIX: pasamos this para que pueda filtrar YouTube/Spotify/AIMP por UID
     private lateinit var oboeBackend: OboeAudioBackend
     private lateinit var effectBackend: AudioEffectAudioBackend
     private lateinit var activeBackend: IAudioBackend
 
     private val _configFlow = MutableStateFlow(DspConfig())
     val configFlow: StateFlow<DspConfig> = _configFlow.asStateFlow()
-
     private val _isServiceActive = MutableStateFlow(false)
     val isServiceActive: StateFlow<Boolean> = _isServiceActive.asStateFlow()
 
@@ -57,17 +53,15 @@ class EQsbAudioService : Service() {
         super.onCreate()
         repository = DspConfigRepository(this)
         nativeDsp = EQsbNativeDsp.create()
-        nativeDsp.initialize(sampleRate = 48000, channels = 2, framesPerBlock = 256)
+        nativeDsp.initialize(sampleRate = 48000, channels = 2, framesPerBlock = 128)
 
         oboeBackend = OboeAudioBackend()
-        effectBackend = AudioEffectAudioBackend(this) // con context
+        effectBackend = AudioEffectAudioBackend(this)
 
         val initialConfig = repository.loadConfig().copy(backendType = AudioBackendType.AUDIO_EFFECT)
         _configFlow.value = initialConfig
         nativeDsp.applyConfig(initialConfig)
-
-        activeBackend = effectBackend // arrancamos en efecto para YouTube/Spotify/AIMP
-
+        activeBackend = effectBackend
         createNotificationChannel()
     }
 
@@ -86,7 +80,6 @@ class EQsbAudioService : Service() {
     private fun startEngine() {
         if (!nativeDsp.isNativeReady()) {
             _isServiceActive.value = false
-            Log.e(TAG, "Native DSP library unavailable")
             stopSelf(); return
         }
         startForeground(NOTIFICATION_ID, buildNotification())
@@ -95,14 +88,9 @@ class EQsbAudioService : Service() {
             AudioBackendType.AUDIO_EFFECT -> effectBackend
         }
         val started = activeBackend.start(nativeDsp)
-        if (!started) {
-            _isServiceActive.value = false
-            Log.e(TAG, "Backend failed: ${activeBackend.name}")
-            stopSelf(); return
-        }
+        if (!started) { _isServiceActive.value = false; stopSelf(); return }
         activeBackend.applyConfig(_configFlow.value)
         _isServiceActive.value = true
-        Log.i(TAG, "Service started with ${activeBackend.name}")
     }
 
     private fun stopEngine() {
@@ -115,7 +103,6 @@ class EQsbAudioService : Service() {
         repository.saveConfig(newConfig)
         nativeDsp.applyConfig(newConfig)
         activeBackend.applyConfig(newConfig)
-
         if (newConfig.backendType != activeBackend.type) {
             activeBackend.stop()
             activeBackend = when (newConfig.backendType) {
@@ -123,33 +110,30 @@ class EQsbAudioService : Service() {
                 AudioBackendType.AUDIO_EFFECT -> effectBackend
             }
             if (_isServiceActive.value) {
-                val started = activeBackend.start(nativeDsp)
-                if (started) activeBackend.applyConfig(newConfig)
+                if (activeBackend.start(nativeDsp)) activeBackend.applyConfig(newConfig)
                 else _isServiceActive.value = false
             }
         }
     }
 
-    // NUEVO - No rompe nada, lo usa MainActivity
     fun getBackend(): IAudioBackend = activeBackend
+    
     fun injectMediaProjection(mp: MediaProjection) {
         effectBackend.setMediaProjection(mp)
+        if (_isServiceActive.value && activeBackend.type == AudioBackendType.AUDIO_EFFECT) {
+            activeBackend.stop()
+            activeBackend.start(nativeDsp)
+            activeBackend.applyConfig(_configFlow.value)
+        }
     }
 
     fun getNativeDsp(): EQsbNativeDsp = nativeDsp
     override fun onBind(intent: Intent?): IBinder = binder
-
-    override fun onDestroy() {
-        super.onDestroy()
-        stopEngine()
-        nativeDsp.destroy()
-    }
+    override fun onDestroy() { super.onDestroy(); stopEngine(); nativeDsp.destroy() }
 
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(CHANNEL_ID, "EQsb DSP Service", NotificationManager.IMPORTANCE_LOW).apply {
-                description = "EQsb Real C++ Audio DSP Service Active"
-            }
+            val channel = NotificationChannel(CHANNEL_ID, "EQsb DSP Service", NotificationManager.IMPORTANCE_LOW)
             getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         }
     }
