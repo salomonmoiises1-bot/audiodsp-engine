@@ -1,6 +1,7 @@
 package com.eqsb.backend
 
 import android.content.Context
+import android.content.pm.PackageManager
 import android.media.*
 import android.media.projection.MediaProjection
 import android.os.Process
@@ -35,10 +36,10 @@ class AudioEffectAudioBackend(private val context: Context? = null) : IAudioBack
 
     override fun start(dsp: EQsbNativeDsp): Boolean {
         nativeDsp = dsp
-        nativeDsp?.initialize(48000, 2, 256)
+        nativeDsp?.initialize(48000, 2, 128)
         running = true
         if (projection != null) startInternal()
-        return true // importante: true para que no haga stopSelf()
+        return true
     }
 
     private fun startInternal() {
@@ -51,10 +52,18 @@ class AudioEffectAudioBackend(private val context: Context? = null) : IAudioBack
             context?.let { ctx ->
                 try {
                     val pm = ctx.packageManager
-                    listOf("com.google.android.youtube","com.spotify.music","com.aimp.player").forEach { pkg ->
-                        try { builder.addMatchingUid(pm.getPackageUid(pkg,0)) } catch (_: Exception){}
+                    val pkgs = listOf("com.google.android.youtube","com.spotify.music","com.aimp.player","com.aimp.player2")
+                    pkgs.forEach { pkg ->
+                        try {
+                            val uid = if (android.os.Build.VERSION.SDK_INT >= 33) {
+                                pm.getPackageUid(pkg, PackageManager.PackageInfoFlags.of(0))
+                            } else {
+                                @Suppress("DEPRECATION") pm.getPackageUid(pkg, 0)
+                            }
+                            builder.addMatchingUid(uid)
+                        } catch (_: Exception) {}
                     }
-                } catch (_: Exception){}
+                } catch (_: Exception) {}
             }
 
             val captureConfig = builder.build()
@@ -68,34 +77,35 @@ class AudioEffectAudioBackend(private val context: Context? = null) : IAudioBack
             record = AudioRecord.Builder()
                 .setAudioFormat(format)
                 .setAudioPlaybackCaptureConfig(captureConfig)
-                .setBufferSizeInBytes(minBuf * 4)
+                .setBufferSizeInBytes(minBuf * 2)
                 .build()
 
             track = AudioTrack.Builder()
                 .setAudioAttributes(AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_GAME) // diferente a MEDIA para poder mutear original
+                    .setUsage(AudioAttributes.USAGE_GAME)
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build())
                 .setAudioFormat(format)
-                .setBufferSizeInBytes(minBuf * 4)
+                .setBufferSizeInBytes(minBuf * 2)
                 .setTransferMode(AudioTrack.MODE_STREAM)
+                .setPerformanceMode(AudioTrack.PERFORMANCE_MODE_LOW_LATENCY)
                 .build()
 
             record?.startRecording()
             track?.play()
 
             job = CoroutineScope(Dispatchers.Default).launch {
-                val buf = FloatArray(1024 * 2)
+                val buf = FloatArray(128 * 2)
                 while (isActive) {
                     val readFloats = record?.read(buf, 0, buf.size, AudioRecord.READ_BLOCKING) ?: 0
                     if (readFloats > 0) {
                         val frames = readFloats / 2
-                        nativeDsp?.processAudio(buf, frames) // tu EQ32.h
+                        nativeDsp?.processAudio(buf, frames)
                         track?.write(buf, 0, readFloats, AudioTrack.WRITE_BLOCKING)
                     }
                 }
             }
-            Log.i(TAG, "EQ activo para YouTube/Spotify/AIMP sin mic")
+            Log.i(TAG, "EQ activo low-latency 128f para YouTube/Spotify/AIMP")
         } catch (e: Exception) {
             Log.e(TAG, "Error captura", e)
         }
@@ -103,10 +113,10 @@ class AudioEffectAudioBackend(private val context: Context? = null) : IAudioBack
 
     private fun stopInternal() {
         job?.cancel(); job = null
-        try { record?.stop() } catch (_: Exception){}
-        try { record?.release() } catch (_: Exception){}
-        try { track?.stop() } catch (_: Exception){}
-        try { track?.release() } catch (_: Exception){}
+        try { record?.stop() } catch (_: Exception) {}
+        try { record?.release() } catch (_: Exception) {}
+        try { track?.stop() } catch (_: Exception) {}
+        try { track?.release() } catch (_: Exception) {}
         record = null; track = null
     }
 
